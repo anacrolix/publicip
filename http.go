@@ -22,8 +22,8 @@ var (
 	}
 )
 
-func fromHttp(ctx context.Context) (ip net.IP, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://icanhazip.com", nil)
+func fromHttp(ctx context.Context, domainPrefix string) (ip net.IP, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+domainPrefix+"icanhazip.com", nil)
 	if err != nil {
 		return
 	}

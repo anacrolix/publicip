@@ -1,8 +1,12 @@
+// Get some Haskell in to you.
+
 package publicip
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
-// Get some Haskell in to you.
 func race[R any](ctx context.Context, fs ...func(context.Context) (R, error)) (r R, errs []error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -36,4 +40,24 @@ func race[R any](ctx context.Context, fs ...func(context.Context) (R, error)) (r
 		}
 	}
 	return
+}
+
+type action[T any] func(context.Context) T
+
+func concurrently[T any](ctx context.Context, fs ...action[T]) <-chan T {
+	ch := make(chan T, len(fs))
+	var wg sync.WaitGroup
+	for _, f := range fs {
+		wg.Add(1)
+		f := f
+		go func() {
+			defer wg.Done()
+			ch <- f(ctx)
+		}()
+	}
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+	return ch
 }

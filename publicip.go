@@ -44,19 +44,35 @@ func withDialNetworkSuffix(ctx context.Context, suffix string) context.Context {
 func GetAll(ctx context.Context) ([]net.IPAddr, error) {
 	res, errs := race(
 		ctx,
-		func(ctx context.Context) (interface{}, error) {
+		func(ctx context.Context) ([]net.IPAddr, error) {
 			// We know this passes "ip" to the LookupIP, and includes Zones in the return.
 			return openDnsResolver.LookupIPAddr(ctx, "myip.opendns.com")
 		},
-		func(ctx context.Context) (interface{}, error) {
-			ip, err := fromHttp(ctx)
-			return []net.IPAddr{{IP: ip}}, err
+		func(ctx context.Context) (ips []net.IPAddr, err error) {
+			var fs []action[result[net.IP]]
+			for _, domainPrefix := range []string{"ipv4.", "ipv6."} {
+				domainPrefix := domainPrefix
+				fs = append(fs, func(ctx context.Context) result[net.IP] {
+					return resultFromTuple(fromHttp(ctx, domainPrefix))
+				})
+			}
+			for res := range concurrently(ctx, fs...) {
+				if res.Err != nil {
+					err = res.Err
+					continue
+				}
+				ips = append(ips, net.IPAddr{IP: res.Ok})
+			}
+			if len(ips) != 0 {
+				err = nil
+			}
+			return
 		},
 	)
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("racing lookup: %v", errs)
 	}
-	return res.([]net.IPAddr), nil
+	return res, nil
 }
 
 // Network should be one of "ip", "ip4", or "ip6".
@@ -67,7 +83,7 @@ func Get(ctx context.Context, network string) ([]net.IP, error) {
 			return openDnsResolver.LookupIP(ctx, network, "myip.opendns.com")
 		},
 		func(ctx context.Context) (interface{}, error) {
-			ip, err := fromHttp(ctx)
+			ip, err := fromHttp(ctx, "")
 			return []net.IP{ip}, err
 		},
 	)
