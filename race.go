@@ -3,10 +3,10 @@ package publicip
 import "context"
 
 // Get some Haskell in to you.
-func race(ctx context.Context, fs ...func(context.Context) (interface{}, error)) (interface{}, []error) {
+func race[R any](ctx context.Context, fs ...func(context.Context) (R, error)) (r R, errs []error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	rs := make(chan interface{})
+	rs := make(chan R)
 	errChan := make(chan error, len(fs))
 	for _, _f := range fs {
 		f := _f
@@ -22,17 +22,18 @@ func race(ctx context.Context, fs ...func(context.Context) (interface{}, error))
 			}
 		}()
 	}
-	errs := make([]error, 0, len(fs))
+	errs = make([]error, 0, len(fs))
 	for range fs {
 		select {
 		case <-ctx.Done():
 			errs = append(errs, ctx.Err())
-			return nil, errs
-		case r := <-rs:
-			return r, nil
+			return
+		case r = <-rs:
+			errs = nil
+			return
 		case err := <-errChan:
 			errs = append(errs, err)
 		}
 	}
-	return nil, errs
+	return
 }
