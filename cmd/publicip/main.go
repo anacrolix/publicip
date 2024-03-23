@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/alexflint/go-arg"
-	"github.com/anacrolix/publicip"
 	"github.com/davecgh/go-spew/spew"
+
+	"github.com/anacrolix/publicip"
 )
 
 func main() {
